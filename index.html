@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07366A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Verkehrszählung</title>
+<style>
+:root{
+  --orange:#FDA811; --navy:#07366A; --petrol:#00929A; --rot:#E6224F;
+  --ink:#0A2440; --ground:#EDF1F5; --paper:#FFFFFF; --line:#C9D3DF; --muted:#50627A;
+  --r-btn:14px; --r-field:12px; --r-sheet:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none !important}
+html,body{min-height:100%}
+body{font-family:Arial,"Helvetica Neue",Helvetica,sans-serif;background:var(--ground);color:var(--ink);font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+
+/* ---------- Einrichtung ---------- */
+.setup{max-width:520px;margin:0 auto;padding:calc(22px + env(safe-area-inset-top,0px)) 20px calc(40px + env(safe-area-inset-bottom,0px))}
+.stripe{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:22px}
+.stripe i{height:6px;border-radius:3px}
+.setup h1{font-size:30px;line-height:1.1;color:var(--navy);letter-spacing:-.01em}
+.setup .lead{color:var(--muted);margin:6px 0 26px;max-width:40ch}
+.field{display:block;border:0;margin-bottom:18px}
+.field > span,.field > legend{display:block;font-weight:700;font-size:15px;margin-bottom:7px}
+.field input[type=text],.field input[type=url]{width:100%;height:52px;border:2px solid var(--line);border-radius:var(--r-field);padding:0 14px;font-size:18px;background:var(--paper)}
+.field input:focus{border-color:var(--navy);outline:none}
+.field.compact input{height:48px;font-size:17px}
+.hint{color:var(--muted);font-size:14px}
+.error{background:var(--rot);color:#fff;border-radius:var(--r-field);padding:10px 14px;margin-bottom:14px;font-weight:700}
+.primary,.secondary,.danger{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;border-radius:var(--r-btn);font-weight:700;font-size:17px;padding:0 16px;text-align:center}
+.primary{background:var(--navy);color:#fff}
+.secondary{background:var(--paper);color:var(--navy);border:2px solid var(--navy)}
+.danger{background:var(--paper);color:var(--rot);border:2px solid var(--rot)}
+.danger.armed{background:var(--rot);color:#fff}
+.primary:active,.secondary:active,.danger:active{transform:scale(.98)}
+.stack > * + *{margin-top:10px}
+.conn{margin-top:30px;border-top:2px solid var(--line);padding-top:18px}
+.conn summary{font-weight:700;color:var(--navy);cursor:pointer;font-size:17px;padding:4px 0}
+.conn[open] summary{margin-bottom:14px}
+.roles{display:grid;gap:8px}
+.role{display:block;width:100%;text-align:left;background:var(--paper);border:2px solid var(--line);border-radius:var(--r-field);padding:12px 14px}
+.role b{display:block;font-size:18px;color:var(--navy)}
+.role small{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+.role[aria-pressed=true]{background:var(--navy);border-color:var(--navy)}
+.role[aria-pressed=true] b{color:#fff}
+.role[aria-pressed=true] small{color:#C6D4E6}
+.done-msg{background:var(--petrol);color:#fff;border-radius:var(--r-field);padding:12px 14px;margin-bottom:22px;font-weight:700}
+
+/* ---------- Zählansicht ---------- */
+.top{position:sticky;top:0;z-index:5}
+.bar{position:relative;background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px}
+.bar-main{display:flex;align-items:center;gap:10px}
+.where{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+.where strong{font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dirchip{flex:none;display:inline-flex;align-items:center;gap:4px;background:var(--orange);color:var(--navy);font-weight:700;font-size:14px;border-radius:999px;padding:3px 10px 3px 6px}
+.dirchip svg{width:15px;height:15px;fill:var(--navy)}
+.menu-btn{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.1)}
+.menu-btn svg{width:22px;height:22px;fill:#fff}
+.pause-btn{flex:none;height:44px;padding:0 12px;border-radius:12px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);color:#fff;font-weight:700;font-size:15px}
+.pause-btn svg{width:16px;height:16px;fill:#fff}
+.overlay.pause-ov{align-items:center;background:rgba(7,54,106,.94)}
+.sheet.pause-sheet{border-radius:var(--r-sheet);margin:16px;max-width:420px;padding:24px 20px}
+.sheet.pause-sheet h3{font-size:30px;margin-bottom:4px}
+.pause-since{font-size:17px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pause-note{margin:16px 0 22px;font-size:15px;color:var(--ink)}
+.bar-sub{display:flex;align-items:center;gap:12px;margin-top:6px;font-size:14px;color:#C6D4E6}
+.bar-sub .who{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clock{font-variant-numeric:tabular-nums}
+.pill{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700;background:rgba(255,255,255,.12);color:#fff}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--orange)}
+.pill[data-state=ok] i{background:#3FD0C2}
+.pill[data-state=err] i{background:var(--rot);box-shadow:0 0 0 2px #fff}
+.pill[data-state=busy] i{background:#fff;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+.warn{background:var(--rot);color:#fff;padding:10px 14px;font-weight:700;font-size:14px}
+.tally{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:8px 10px 8px 16px;background:var(--paper);border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.undo{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:0 12px;border-radius:10px;border:2px solid var(--rot);color:var(--rot);font-weight:700;font-size:15px;background:var(--paper)}
+.undo svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.undo:active{background:var(--rot);color:#fff}
+.undo:disabled{border-color:var(--line);color:var(--line);background:var(--paper)}
+.tally b{font-size:19px;color:var(--navy);font-variant-numeric:tabular-nums;margin-right:5px}
+.count-main{max-width:720px;margin:0 auto;padding:4px 12px calc(110px + env(safe-area-inset-bottom,0px))}
+.count-main h2{font-size:15px;font-weight:700;color:var(--muted);margin:16px 2px 8px}
+.veh-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.veh{--btn-bg:var(--navy);position:relative;background:var(--btn-bg);color:#fff;border-radius:var(--r-btn);min-height:108px;padding:12px;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:8px;text-align:left}
+.veh.wide{grid-column:1/-1;min-height:86px;flex-direction:row;align-items:center;justify-content:flex-start;gap:16px;padding:12px 16px}
+.veh-label{font-weight:700;font-size:17px;line-height:1.15}
+.veh-label small{display:block;font-weight:400;font-size:13px;opacity:.85;margin-top:2px}
+.num{position:absolute;top:10px;right:12px;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.veh.wide .num{position:static;margin-left:auto;font-size:30px}
+.ico{fill:currentColor;width:66px;height:29px;flex:none}
+.veh.wide .ico{width:86px;height:37px}
+.ico .win{fill:var(--btn-bg);opacity:.7}
+.ico circle{stroke:var(--btn-bg);stroke-width:1.6}
+.veh:active,.pvb:active{transform:scale(.97)}
+.hit{animation:hit .22s ease-out}
+@keyframes hit{0%{filter:brightness(1.45)}100%{filter:none}}
+.count-main .dir-label{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--navy);margin:16px 2px 8px}
+.dirtag{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;flex:none}
+.veh-grid + .pv-grid{margin-top:10px}
+.wv-only .veh{min-height:140px}
+.wv-only .veh .ico{width:80px;height:34px}
+.pv-only .pvb{min-height:120px}
+.pv-only .pvb .ico{width:70px;height:30px}
+.pv-only .pvb > span:not(.num){font-size:18px}
+.pv-only .pvb .num{font-size:26px}
+.pv-only .pvb.main .num{font-size:34px}
+.compact .veh-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.compact .veh{min-height:78px;padding:8px 7px;gap:4px}
+.compact .veh .ico{width:44px;height:19px}
+.compact .veh-label{font-size:13px;-webkit-hyphens:manual;hyphens:manual}
+.compact .veh .num{font-size:17px;top:7px;right:8px}
+.compact .pv-grid{gap:6px}
+.compact .veh-grid + .pv-grid{margin-top:6px}
+.compact .pvb{min-height:68px}
+.compact .pvb .ico{width:40px;height:17px}
+.count-main.compact .dir-label{margin-top:12px}
+.pv-label{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--navy);margin:0 2px 6px}
+.pv-label svg{width:15px;height:15px;fill:var(--navy)}
+.pv-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:8px}
+.pvb{--btn-bg:var(--orange);position:relative;background:var(--btn-bg);color:var(--navy);border-radius:var(--r-btn);min-height:86px;padding:10px 11px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:6px;font-weight:700;text-align:left}
+.pvb .ico{width:50px;height:22px}
+.pvb .num{top:9px;right:10px;font-size:20px}
+.pvb.main .num{font-size:26px}
+.recent ol{list-style:none;background:var(--paper);border-radius:var(--r-btn);overflow:hidden}
+.recent li{display:grid;grid-template-columns:4px auto 1fr auto;gap:12px;align-items:center;padding:11px 12px 11px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.recent li:last-child{border-bottom:0}
+.recent li::before{content:"";align-self:stretch;background:var(--navy);border-radius:0 3px 3px 0}
+.recent li.pv::before{background:var(--orange)}
+.recent time{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
+.recent .what b{display:block;font-size:15px}
+.recent .what span{font-size:14px;color:var(--petrol);font-weight:700}
+.recent .what span.plain{color:var(--muted);font-weight:400}
+.recent .act{font-size:14px;color:var(--navy);text-decoration:underline;text-underline-offset:3px}
+.recent-empty{background:var(--paper);border-radius:var(--r-btn);padding:16px}
+
+/* ---------- Blätter ---------- */
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(7,33,64,.5);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--paper);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));animation:up .18s ease-out}
+@keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+.sheet-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.sheet-head > div{flex:1;min-width:0}
+.sheet h3{font-size:20px;color:var(--navy);line-height:1.2}
+.close{flex:none;min-height:44px;padding:0 14px;border-radius:12px;border:2px solid var(--line);font-weight:700;color:var(--muted)}
+.branch-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px}
+.branch{min-height:62px;border-radius:var(--r-btn);background:var(--petrol);color:#fff;font-weight:700;font-size:17px;padding:0 10px}
+.branch.last{grid-column:1/-1;background:var(--paper);color:var(--petrol);border:2px solid var(--petrol)}
+.branch:active{transform:scale(.97)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{min-height:44px;padding:0 14px;border-radius:999px;border:2px solid var(--petrol);color:var(--petrol);font-weight:700;font-size:15px}
+.chip[aria-pressed=true]{background:var(--petrol);color:#fff}
+.label{font-weight:700;font-size:15px;margin-bottom:8px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.toast{position:fixed;z-index:30;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto;background:var(--ink);color:#fff;border-radius:var(--r-btn);padding:8px 8px 8px 16px;display:flex;align-items:center;gap:12px;min-height:54px}
+.toast span{flex:1;font-size:15px}
+.toast button{min-height:40px;padding:0 12px;border-radius:10px;color:var(--orange);font-weight:700}
+/* Während der Zählung erscheint der Hinweis im Kopfbereich, damit er nie Zähltasten verdeckt */
+.toast.in-bar{position:absolute;left:10px;right:10px;bottom:7px;margin:0;max-width:none;min-height:44px;padding:2px 4px 2px 14px;background:var(--paper);color:var(--ink);border-radius:12px;z-index:6}
+.toast.in-bar span{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.toast.in-bar button{color:var(--rot)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+@media (min-width:560px){.veh-grid{grid-template-columns:repeat(4,1fr)}.veh.wide{grid-column:1/-1}}
+</style>
+</head>
+<body>
+
+<!-- =================== Einrichtung =================== -->
+<section id="setup" class="setup" hidden>
+  <div class="stripe" aria-hidden="true"><i style="background:var(--orange)"></i><i style="background:var(--navy)"></i><i style="background:var(--petrol)"></i><i style="background:var(--rot)"></i></div>
+  <h1>Verkehrszählung</h1>
+  <p class="lead">Wirtschaftsverkehr nach Fahrzeug und Branche, Privatverkehr als Strichliste.</p>
+
+  <p id="done-msg" class="done-msg" hidden></p>
+
+  <fieldset class="field">
+    <legend>Welche Person sind Sie?</legend>
+    <div class="roles" id="roles"></div>
+  </fieldset>
+  <label class="field"><span>Ihr Name (optional)</span><input type="text" id="f-name" autocomplete="name" enterkeyhint="done"></label>
+
+  <p id="setup-error" class="error" role="alert" hidden></p>
+  <button type="button" id="btn-start" class="primary">Zählung starten</button>
+
+  <details class="conn" id="conn">
+    <summary>Daten und Sicherung</summary>
+    <div class="stack">
+      <p id="local-info" class="hint"></p>
+      <button type="button" id="s-export" class="secondary">CSV exportieren</button>
+      <button type="button" id="s-share" class="secondary" hidden>CSV teilen, z.B. per E-Mail</button>
+    </div>
+    <div style="margin-top:22px">
+      <label class="field compact"><span>Adresse der Datenbank</span><input type="url" id="f-api" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"></label>
+      <button type="button" id="btn-test" class="secondary">Verbindung testen</button>
+      <p id="test-result" class="hint" style="margin-top:10px"></p>
+    </div>
+  </details>
+</section>
+
+<!-- =================== Zählen =================== -->
+<section id="count" hidden>
+  <div class="top">
+  <header class="bar">
+    <div class="bar-main">
+      <div class="where"><strong id="h-site"></strong><span class="dirchip" id="h-dir"></span></div>
+      <button type="button" class="pause-btn" id="btn-pause"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="3.6" height="12" rx="1"/><rect x="9.4" y="2" width="3.6" height="12" rx="1"/></svg>Pause</button>
+      <button type="button" class="menu-btn" id="btn-menu" aria-label="Menü öffnen"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg></button>
+    </div>
+    <div class="bar-sub">
+      <span class="who" id="h-person"></span>
+      <span class="clock" id="h-clock"></span>
+      <button type="button" class="pill" id="sync-pill" data-state="warn"><i></i><span></span></button>
+    </div>
+  </header>
+  <div id="storage-warn" class="warn" hidden>Dieses Gerät kann keine Einträge speichern (privater Modus oder Speicher voll). Verbindung zur Datenbank prüfen und regelmässig CSV exportieren.</div>
+  <div class="tally">
+    <span title="Wirtschaftsverkehr"><b id="t-wv">0</b>WV</span>
+    <span title="Privatverkehr"><b id="t-pv">0</b>PV</span>
+    <span><b id="t-5">0</b>in 5 Min.</span>
+    <button type="button" class="undo" id="btn-undo" aria-label="Letzten Eintrag entfernen" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Rückgängig</button>
+  </div>
+  </div>
+  <main class="count-main">
+    <div id="blocks"></div>
+    <section class="recent">
+      <h2>Letzte Einträge</h2>
+      <ol id="recent"></ol>
+      <p id="recent-empty" class="recent-empty hint">Noch keine Einträge. Tippen Sie auf ein Fahrzeug, sobald es die Zählstelle passiert.</p>
+    </section>
+  </main>
+</section>
+
+<!-- Branche wählen -->
+<div class="overlay" id="ov-branch" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="br-title">
+    <div class="sheet-head">
+      <div><h3 id="br-title"></h3><p class="hint" id="br-time"></p></div>
+      <button type="button" class="close" data-close>Abbrechen</button>
+    </div>
+    <div class="branch-grid" id="branch-grid"></div>
+    <label class="field compact" style="margin-bottom:0"><span>Firma oder Kommentar (optional)</span><input type="text" id="br-comment" autocomplete="off" enterkeyhint="done"></label>
+  </div>
+</div>
+
+<!-- Eintrag bearbeiten -->
+<div class="overlay" id="ov-edit" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ed-title">
+    <div class="sheet-head">
+      <div><h3 id="ed-title"></h3><p class="hint" id="ed-time"></p></div>
+      <button type="button" class="close" data-close>Schliessen</button>
+    </div>
+    <div id="ed-branch-wrap"><p class="label">Branche</p><div class="chips" id="ed-branches"></div></div>
+    <label class="field compact"><span>Firma oder Kommentar</span><input type="text" id="ed-comment" autocomplete="off" enterkeyhint="done"></label>
+    <div class="row2">
+      <button type="button" class="danger" id="ed-delete">Eintrag löschen</button>
+      <button type="button" class="primary" id="ed-save">Änderung speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Menü -->
+<!-- Pause -->
+<div class="overlay pause-ov" id="ov-pause" hidden>
+  <div class="sheet pause-sheet" role="dialog" aria-modal="true" aria-labelledby="p-title">
+    <h3 id="p-title">Pause</h3>
+    <p class="pause-since" id="p-since"></p>
+    <p class="pause-note">Während der Pause wird nicht gezählt. Beginn und Ende der Pause werden im Spreadsheet vermerkt.</p>
+    <div class="stack">
+      <button type="button" class="primary" id="p-resume">Zählung fortsetzen</button>
+      <button type="button" class="secondary" id="p-end">Zählung beenden</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-menu" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="sheet-head">
+      <div><h3 id="m-title">Zählung</h3><p class="hint" id="m-status"></p></div>
+      <button type="button" class="close" data-close>Schliessen</button>
+    </div>
+    <div class="stack">
+      <button type="button" class="secondary" id="m-sync">Jetzt übertragen</button>
+      <button type="button" class="secondary" id="m-export">CSV exportieren</button>
+      <button type="button" class="secondary" id="m-share" hidden>CSV teilen, z.B. per E-Mail</button>
+      <button type="button" class="primary" id="m-end">Zählung beenden</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-msg"></span><button type="button" id="toast-undo">Rückgängig</button></div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   KONFIGURATION – einmalig anpassen
+   API_URL: Web-App-URL aus Google Apps Script (endet auf /exec).
+            Leer lassen = nur lokale Speicherung + CSV-Export.
+   TOKEN:   Muss mit TOKEN in Code.gs übereinstimmen.
+   ===================================================================== */
+const CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbwSKmwj56DwZxH1KIGeBs3juW8m14DyupD1u4X7l6-Vgkxdiar_v8-uLe8iQC5ohu9z/exec',
+  TOKEN: 'Count',
+  SYNC_INTERVAL_MS: 15000,
+  BATCH_SIZE: 200,
+};
+
+/* ---------- Kategorien ---------- */
+/* Rollen: welche Person zählt was. Stelle 1/2 und Richtung A/B werden im
+   Einsatzdokument für jeden Zähltag definiert. */
+const ROLES = [
+  { nr:1, label:'Person 1', stelle:'Stelle 1', wv:['A'],     pv:[],        desc:'Stelle 1, Wirtschaftsverkehr Richtung A' },
+  { nr:2, label:'Person 2', stelle:'Stelle 1', wv:['B'],     pv:[],        desc:'Stelle 1, Wirtschaftsverkehr Richtung B' },
+  { nr:3, label:'Person 3', stelle:'Stelle 1', wv:[],        pv:['A','B'], desc:'Stelle 1, Privatverkehr beide Richtungen' },
+  { nr:4, label:'Person 4', stelle:'Stelle 2', wv:['A','B'], pv:['A','B'], desc:'Stelle 2, gesamter Verkehr beide Richtungen' },
+];
+const roleOf = nr => ROLES.find(r => r.nr === nr) || null;
+
+const WV_VEHICLES = [
+  { key:'lieferwagen', label:'Lieferwagen', short:'Liefer\u00ADwagen', sub:'bis 3,5 t', name:'Lieferwagen (bis 3,5 t)', cat:'Lieferwagen',     icon:'van' },
+  { key:'lkw_leicht',  label:'Lastwagen',   short:'Lkw bis 7,5\u00A0t',     sub:'3,5–7,5 t', name:'Lastwagen (3,5–7,5 t)',   cat:'Lastwagen 7,5 t', icon:'lkw75' },
+  { key:'lkw',         label:'Lastwagen',   short:'Lkw bis 18\u00A0t',     sub:'7,5–18 t',  name:'Lastwagen (7,5–18 t)',    cat:'Lastwagen 18 t',  icon:'lkw18' },
+  { key:'lastenzug',   label:'Lastenzug',   short:'Lasten\u00ADzug',   sub:'über 18 t', name:'Lastenzug (über 18 t)',   cat:'Lastenzug',       icon:'semi' },
+];
+const PV_VEHICLES = [
+  { key:'pkw',       label:'Pkw',       name:'Pkw',       cat:'Pkw',       icon:'car', main:true },
+  { key:'linienbus', label:'Linienbus', name:'Linienbus', cat:'Linienbus', icon:'bus' },
+  { key:'reisebus',  label:'Reisebus',  name:'Reisebus',  cat:'Reisebus',  icon:'coach' },
+];
+const BRANCHES = ['Transport','Handel','Nahrungsmittel','Entsorgung','Bau','Service','Sonstige / unklar'];
+
+const ICONS = {
+  van:'<path d="M3 19V10a3 3 0 0 1 3-3h32l8 6h8a3 3 0 0 1 3 3v3z"/><path class="win" d="M39 9v4h5.3z"/><circle cx="14" cy="20" r="4"/><circle cx="46" cy="20" r="4"/>',
+  lkw75:'<rect x="3" y="5" width="33" height="14" rx="1.5"/><path d="M38 19V9h9l6 5v5z"/><path class="win" d="M40 11h6l3 2.5h-9z"/><circle cx="12" cy="20" r="3.8"/><circle cx="46" cy="20" r="3.8"/>',
+  lkw18:'<rect x="2" y="2" width="37" height="17" rx="1.5"/><path d="M41 19V6h10l7 6.5V19z"/><path class="win" d="M43 8h7l4.5 4.2H43z"/><circle cx="11" cy="20" r="4.2"/><circle cx="49" cy="20" r="4.2"/>',
+  semi:'<rect x="1" y="3" width="39" height="14" rx="1.5"/><rect x="36" y="16" width="10" height="3"/><path d="M45 19V6h8l6 6v7z"/><path class="win" d="M47 8h5.5l4 4H47z"/><circle cx="23" cy="20" r="3.6"/><circle cx="31" cy="20" r="3.6"/><circle cx="41" cy="20" r="3.6"/><circle cx="54" cy="20" r="3.6"/>',
+  trailer:'<rect x="1" y="5" width="21" height="13" rx="1.5"/><rect x="21" y="15.5" width="6" height="1.6"/><rect x="27" y="5" width="19" height="14" rx="1.5"/><path d="M47.5 19V8h6l5 5v6z"/><path class="win" d="M49 9.8h3.8l3.2 3.2H49z"/><circle cx="6.5" cy="20" r="3.3"/><circle cx="16.5" cy="20" r="3.3"/><circle cx="33" cy="20" r="3.3"/><circle cx="53" cy="20" r="3.3"/>',
+  car:'<path d="M3 19v-4.2a2.2 2.2 0 0 1 1.8-2.2L13 11l6.5-5.2a3 3 0 0 1 1.9-.8h13.4a3 3 0 0 1 2 .8L43 11l10.3 1.6a3 3 0 0 1 2.7 3V19z"/><path class="win" d="M17 11l4.6-3.8h6.4V11zM31 7.2h4.2l4.4 3.8H31z"/><circle cx="15" cy="19.5" r="4"/><circle cx="45" cy="19.5" r="4"/>',
+  bus:'<rect x="2" y="3" width="55" height="16" rx="3"/><rect class="win" x="5" y="6" width="36" height="6" rx="1"/><rect class="win" x="44" y="6" width="10" height="9" rx="1"/><circle cx="14" cy="20" r="3.8"/><circle cx="46" cy="20" r="3.8"/>',
+  coach:'<path d="M2 19V7.5A3.5 3.5 0 0 1 5.5 4H49c4.4 0 8 3.6 8 8v7z"/><path class="win" d="M6 7h42.5c2.7 0 5 1.7 5.8 4.2L55 13H6z"/><circle cx="12" cy="20" r="3.4"/><circle cx="19.5" cy="20" r="3.4"/><circle cx="47" cy="20" r="3.4"/>',
+};
+const icon = n => `<svg class="ico" viewBox="0 0 60 25" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* ---------- Speicher ---------- */
+const KEYS = { records:'vz.records.v1', session:'vz.session.v1', api:'vz.api.v1', device:'vz.device.v1', form:'vz.form.v1' };
+function lsGet(k, fb){ try { const v = localStorage.getItem(k); return v == null ? fb : JSON.parse(v); } catch(e){ return fb; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+const pad = n => String(n).padStart(2, '0');
+function stamp(d){
+  const datum = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const uhrzeit = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return { datum, uhrzeit, erfasst:`${datum} ${uhrzeit}`, intervall:`${pad(d.getHours())}:${pad(Math.floor(d.getMinutes()/5)*5)}` };
+}
+function joinDe(a){ return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' und ' + a[a.length-1]; }
+function slug(s){ return String(s || '').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0, 40) || 'x'; }
+
+let records = lsGet(KEYS.records, []);
+if (!Array.isArray(records)) records = [];
+let session = lsGet(KEYS.session, null);
+const form = Object.assign({ role:0, name:'' }, lsGet(KEYS.form, {}));
+if (session && session.active && !roleOf(session.role)) { session.active = false; lsSet(KEYS.session, session); }
+let deviceId = lsGet(KEYS.device, null);
+if (!deviceId) { deviceId = 'G' + Math.random().toString(36).slice(2, 6).toUpperCase(); lsSet(KEYS.device, deviceId); }
+let storageOk = lsSet('vz.test', 1);
+
+function persist(){
+  storageOk = lsSet(KEYS.records, records);
+  $('#storage-warn').hidden = storageOk;
+}
+if (CONFIG.API_URL) { try { localStorage.removeItem(KEYS.api); } catch (e) {} }
+function apiUrl(){ return (CONFIG.API_URL || lsGet(KEYS.api, '') || '').trim(); }
+const isSynced = r => (r.syncedRev || 0) >= r.rev;
+const pendingList = () => records.filter(r => !isSynced(r));
+
+/* ---------- Einrichtung ---------- */
+let chosenRole = form.role || 0;
+let lastDone = null;
+$('#roles').innerHTML = ROLES.map(r => `<button type="button" class="role" data-role="${r.nr}" aria-pressed="false"><b>${esc(r.label)}</b><small>${esc(r.desc)}</small></button>`).join('');
+function setRole(nr){
+  chosenRole = nr;
+  $$('#roles [data-role]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.role) === nr)));
+}
+$('#roles').addEventListener('click', e => {
+  const b = e.target.closest('[data-role]'); if (!b) return;
+  setRole(Number(b.dataset.role)); $('#setup-error').hidden = true;
+});
+
+function updateLocalInfo(){
+  const total = records.filter(r => r.status === 'ok').length;
+  const p = pendingList().length;
+  let t = `Auf diesem Gerät: ${total} Einträge`;
+  t += apiUrl() ? (p ? `, davon ${p} noch nicht in der Datenbank.` : ', alle in der Datenbank.') : '. Keine Datenbank eingetragen, Daten nur auf dem Gerät.';
+  $('#local-info').textContent = t;
+  if (lastDone !== null && !$('#done-msg').hidden) $('#done-msg').textContent = doneText();
+}
+function showSetup(doneMsg){
+  releaseWake();
+  $('#count').hidden = true; $('#setup').hidden = false;
+  $('#f-name').value = form.name || '';
+  $('#f-api').value = apiUrl();
+  $('#f-api').readOnly = !!CONFIG.API_URL;
+  setRole(form.role || 0);
+  $('#setup-error').hidden = true;
+  $('#done-msg').hidden = !doneMsg; $('#done-msg').textContent = doneMsg || '';
+  if (doneMsg) $('#conn').open = true;
+  updateLocalInfo();
+  window.scrollTo(0, 0);
+}
+function setupError(msg){ const el = $('#setup-error'); el.textContent = msg; el.hidden = false; el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+
+$('#btn-start').addEventListener('click', () => {
+  const role = roleOf(chosenRole);
+  if (!role) return setupError('Bitte wählen Sie, welche Person Sie sind.');
+  const name = $('#f-name').value.trim();
+  Object.assign(form, { role: role.nr, name });
+  lsSet(KEYS.form, form);
+  lastDone = null;
+  session = { id: uid(), role: role.nr, name, started: Date.now(), active: true, pausedAt: null };
+  lsSet(KEYS.session, session);
+  addMarker('Zählbeginn');
+  showCount();
+});
+
+$('#f-api').addEventListener('change', e => {
+  if (CONFIG.API_URL) return;
+  const v = e.target.value.trim();
+  if (!v || v === CONFIG.API_URL) localStorage.removeItem(KEYS.api); else lsSet(KEYS.api, v);
+  $('#test-result').textContent = '';
+  updateLocalInfo();
+});
+$('#btn-test').addEventListener('click', async () => {
+  const out = $('#test-result');
+  if (!CONFIG.API_URL) { const v = $('#f-api').value.trim(); if (!v) localStorage.removeItem(KEYS.api); else lsSet(KEYS.api, v); }
+  if (!apiUrl()) { out.textContent = 'Bitte zuerst die Adresse der Datenbank eintragen.'; return; }
+  out.textContent = 'Verbindung wird geprüft …';
+  try { await post({ token: CONFIG.TOKEN, records: [] }); out.textContent = 'Verbindung steht. Einträge werden automatisch übertragen.'; sync(); }
+  catch (e) { out.textContent = e.message; }
+  updateLocalInfo();
+});
+
+/* ---------- Zählansicht ---------- */
+function showCount(){
+  const role = roleOf(session.role);
+  const both = role.wv.length > 0 && role.pv.length > 0;
+  $('#setup').hidden = true; $('#count').hidden = false;
+  $('#h-site').textContent = role.stelle;
+  $('#h-dir').textContent = role.label;
+  $('#h-person').textContent = session.name || '';
+  const main = $('.count-main');
+  main.classList.toggle('compact', both);
+  main.classList.toggle('wv-only', !role.pv.length);
+  main.classList.toggle('pv-only', !role.wv.length);
+  $('#t-wv').parentElement.hidden = !role.wv.length;
+  $('#t-pv').parentElement.hidden = !role.pv.length;
+  const dirs = ['A', 'B'].filter(d => role.wv.includes(d) || role.pv.includes(d));
+  $('#blocks').innerHTML = dirs.map(d => {
+    const dir = 'Richtung ' + d;
+    const what = both ? '' : (role.wv.length ? ', Wirtschaftsverkehr' : ', Privatverkehr');
+    let h = `<section><h2 class="dir-label"><span class="dirtag">${d}</span>${esc(dir + what)}</h2>`;
+    if (role.wv.includes(d)) h += `<div class="veh-grid">${WV_VEHICLES.map(v =>
+      `<button type="button" class="veh" data-kind="wv" data-veh="${v.key}" data-dir="${esc(dir)}">${icon(v.icon)}<span class="veh-label">${both ? v.short : esc(v.label) + '<small>' + esc(v.sub) + '</small>'}</span><span class="num">0</span></button>`).join('')}</div>`;
+    if (role.pv.includes(d)) h += `<div class="pv-grid">${PV_VEHICLES.map(v =>
+      `<button type="button" class="pvb${v.main ? ' main' : ''}" data-kind="pv" data-veh="${v.key}" data-dir="${esc(dir)}">${icon(v.icon)}<span>${esc(v.label)}</span><span class="num">0</span></button>`).join('')}</div>`;
+    return h + '</section>';
+  }).join('');
+  $('#storage-warn').hidden = storageOk;
+  $('#ov-pause').hidden = !session.pausedAt;
+  tick(); render(); keepAwake(); sync();
+  window.scrollTo(0, 0);
+}
+
+function flash(el){ el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); if (navigator.vibrate) navigator.vibrate(20); }
+
+function addRecord(verkehr, veh, dir, branche, kommentar, when){
+  const s = stamp(when);
+  const r = {
+    id: uid(), rev: 1, syncedRev: 0, t: when.getTime(), session: session.id, fz: veh.key,
+    erfasst: s.erfasst, datum: s.datum, uhrzeit: s.uhrzeit, intervall_5min: s.intervall,
+    person: roleOf(session.role).label, name: session.name || '', zaehlstelle: roleOf(session.role).stelle, richtung: dir,
+    verkehrsart: verkehr, kategorie: veh.cat, fahrzeug: veh.name,
+    branche: branche || '', kommentar: kommentar || '', status: 'ok', geraet: deviceId,
+  };
+  records.push(r); persist(); render(); scheduleSync();
+  return r;
+}
+/* Markierungen: Zählbeginn, Pause Beginn, Pause Ende, Zählende.
+   Sie dokumentieren im Spreadsheet, welche Zeiträume abgedeckt sind. */
+function addMarker(text){
+  const when = new Date(), s = stamp(when), role = roleOf(session.role);
+  const r = {
+    id: uid(), rev: 1, syncedRev: 0, t: when.getTime(), session: session.id, fz: '',
+    erfasst: s.erfasst, datum: s.datum, uhrzeit: s.uhrzeit, intervall_5min: s.intervall,
+    person: role.label, name: session.name || '', zaehlstelle: role.stelle, richtung: '',
+    verkehrsart: 'Markierung', kategorie: '', fahrzeug: text,
+    branche: '', kommentar: '', status: 'ok', geraet: deviceId,
+  };
+  records.push(r); persist(); render(); scheduleSync(1500);
+  return r;
+}
+const isCount = r => r.verkehrsart === 'Wirtschaftsverkehr' || r.verkehrsart === 'Privatverkehr';
+
+function changeRecord(r, patch){
+  Object.assign(r, patch); r.rev += 1;
+  persist(); render(); scheduleSync();
+}
+
+/* Wirtschaftsverkehr: Fahrzeug, dann Branche */
+let pendingVeh = null, openedAt = 0;
+$('#blocks').addEventListener('click', e => {
+  const b = e.target.closest('[data-veh]'); if (!b) return;
+  flash(b);
+  const dir = b.dataset.dir;
+  if (b.dataset.kind === 'wv') {
+    const veh = WV_VEHICLES.find(v => v.key === b.dataset.veh);
+    pendingVeh = { veh, dir, when: new Date() };
+    $('#br-title').textContent = veh.name;
+    $('#br-time').textContent = `${stamp(pendingVeh.when).uhrzeit} Uhr, ${dir}. Branche wählen`;
+    $('#br-comment').value = '';
+    openOverlay('#ov-branch');
+  } else {
+    const veh = PV_VEHICLES.find(v => v.key === b.dataset.veh);
+    const r = addRecord('Privatverkehr', veh, dir, '', '', new Date());
+    toast(describe(r), undoLast(r));
+  }
+});
+$('#branch-grid').innerHTML = BRANCHES.map((b, i) => `<button type="button" class="branch${i === BRANCHES.length-1 ? ' last' : ''}" data-branch="${esc(b)}">${esc(b)}</button>`).join('');
+$('#branch-grid').addEventListener('click', e => {
+  const b = e.target.closest('[data-branch]'); if (!b || !pendingVeh) return;
+  const kommentar = $('#br-comment').value.trim();
+  const r = addRecord('Wirtschaftsverkehr', pendingVeh.veh, pendingVeh.dir, b.dataset.branch, kommentar, pendingVeh.when);
+  pendingVeh = null;
+  closeOverlays();
+  toast(describe(r) + (r.kommentar ? ', ' + r.kommentar : ''), undoLast(r));
+});
+
+function render(){
+  if (!session || !session.active) return;
+  const now = Date.now();
+  let wv = 0, pv = 0, last5 = 0;
+  const counts = {}, list = [];
+  for (const r of records) {
+    if (r.session !== session.id || r.status !== 'ok' || !isCount(r)) continue;
+    list.push(r);
+    if (r.verkehrsart === 'Wirtschaftsverkehr') wv++; else pv++;
+    if (now - r.t < 300000) last5++;
+    const k = r.fz + '|' + r.richtung; counts[k] = (counts[k] || 0) + 1;
+  }
+  $('#t-wv').textContent = wv; $('#t-pv').textContent = pv; $('#t-5').textContent = last5;
+  $('#btn-undo').disabled = !list.length;
+  $$('#blocks [data-veh]').forEach(b => { b.querySelector('.num').textContent = counts[b.dataset.veh + '|' + b.dataset.dir] || 0; });
+  const recent = list.slice(-8).reverse();
+  const multiDir = roleOf(session.role).wv.length > 1;
+  $('#recent').innerHTML = recent.map(r => {
+    const isWv = r.verkehrsart === 'Wirtschaftsverkehr';
+    const detail = isWv
+      ? `<span>${esc(r.branche)}</span>${multiDir ? ` <span class="plain">${esc(r.richtung)}</span>` : ''}${r.kommentar ? ` <span class="plain">${esc(r.kommentar)}</span>` : ''}`
+      : `<span class="plain">${esc(r.richtung)}</span>`;
+    const act = isWv && !r.kommentar ? 'Firma ergänzen' : 'Ändern';
+    return `<li data-id="${esc(r.id)}" class="${isWv ? 'wv' : 'pv'}"><time>${esc(r.uhrzeit)}</time><span class="what"><b>${esc(r.fahrzeug)}</b>${detail}</span><span class="act">${act}</span></li>`;
+  }).join('');
+  $('#recent').hidden = !recent.length;
+  $('#recent-empty').hidden = !!recent.length;
+  renderSync();
+}
+
+/* Eintrag bearbeiten */
+let editing = null, editBranch = '', delArmed = false;
+$('#recent').addEventListener('click', e => {
+  const li = e.target.closest('li[data-id]'); if (!li) return;
+  const r = records.find(x => x.id === li.dataset.id); if (!r) return;
+  editing = r; editBranch = r.branche; delArmed = false;
+  $('#ed-delete').classList.remove('armed'); $('#ed-delete').textContent = 'Eintrag löschen';
+  $('#ed-title').textContent = r.fahrzeug;
+  $('#ed-time').textContent = `${r.uhrzeit} Uhr, ${r.richtung}`;
+  const isWv = r.verkehrsart === 'Wirtschaftsverkehr';
+  $('#ed-branch-wrap').hidden = !isWv;
+  $('#ed-branches').innerHTML = BRANCHES.map(b => `<button type="button" class="chip" data-branch="${esc(b)}" aria-pressed="${b === r.branche}">${esc(b)}</button>`).join('');
+  $('#ed-comment').value = r.kommentar || '';
+  openOverlay('#ov-edit');
+});
+$('#ed-branches').addEventListener('click', e => {
+  const b = e.target.closest('[data-branch]'); if (!b) return;
+  editBranch = b.dataset.branch;
+  $$('#ed-branches .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.branch === editBranch)));
+});
+$('#ed-save').addEventListener('click', () => {
+  if (!editing) return;
+  const kommentar = $('#ed-comment').value.trim();
+  if (kommentar !== editing.kommentar || editBranch !== editing.branche) {
+    changeRecord(editing, { kommentar, branche: editBranch });
+    toast('Änderung gespeichert.');
+  }
+  closeOverlays();
+});
+$('#ed-delete').addEventListener('click', () => {
+  if (!editing) return;
+  if (!delArmed) { delArmed = true; $('#ed-delete').classList.add('armed'); $('#ed-delete').textContent = 'Wirklich löschen?'; return; }
+  changeRecord(editing, { status: 'gelöscht' });
+  closeOverlays();
+  toast('Eintrag gelöscht.');
+});
+
+/* Menü */
+$('#btn-menu').addEventListener('click', () => { renderSync(); $('#m-share').hidden = !canShareFiles(); openOverlay('#ov-menu'); });
+$('#m-sync').addEventListener('click', () => { closeOverlays(); if (!apiUrl()) toast('Keine Datenbank eingetragen. Bitte CSV exportieren.'); else sync(true); });
+$('#m-export').addEventListener('click', () => { closeOverlays(); exportCsv(); });
+$('#m-share').addEventListener('click', () => { closeOverlays(); shareCsv(); });
+function endSession(){
+  closeOverlays();
+  $('#ov-pause').hidden = true;
+  addMarker('Zählende');
+  const n = records.filter(r => r.session === session.id && r.status === 'ok' && isCount(r)).length;
+  session.active = false; session.pausedAt = null; lsSet(KEYS.session, session);
+  sync();
+  lastDone = n;
+  showSetup(doneText());
+}
+function doneText(){
+  const p = pendingList().length;
+  return `Zählung beendet: ${lastDone} Fahrzeuge erfasst.` + (apiUrl()
+    ? (p ? ` ${p} Einträge werden noch übertragen. Falls das nicht klappt, bitte CSV exportieren.` : ' Alle Einträge sind in der Datenbank.')
+    : ' Bitte jetzt CSV exportieren.');
+}
+$('#m-end').addEventListener('click', endSession);
+$('#p-end').addEventListener('click', endSession);
+
+/* Pause */
+$('#btn-pause').addEventListener('click', () => {
+  if (!session || !session.active || session.pausedAt) return;
+  closeOverlays();
+  session.pausedAt = Date.now(); lsSet(KEYS.session, session);
+  addMarker('Pause Beginn');
+  $('#ov-pause').hidden = false; tick();
+});
+$('#p-resume').addEventListener('click', () => {
+  if (!session || !session.pausedAt) return;
+  session.pausedAt = null; lsSet(KEYS.session, session);
+  addMarker('Pause Ende');
+  $('#ov-pause').hidden = true;
+  toast('Zählung fortgesetzt.');
+});
+$('#sync-pill').addEventListener('click', () => { if (apiUrl()) sync(true); else toast('Keine Datenbank eingetragen. Daten bleiben auf dem Gerät, bitte CSV exportieren.'); });
+$('#s-export').addEventListener('click', exportCsv);
+$('#s-share').addEventListener('click', shareCsv);
+
+/* ---------- Blätter und Hinweise ---------- */
+function openOverlay(sel){ $$('.overlay:not(#ov-pause)').forEach(o => o.hidden = true); $(sel).hidden = false; openedAt = Date.now(); }
+function closeOverlays(){ $$('.overlay:not(#ov-pause)').forEach(o => o.hidden = true); pendingVeh = null; editing = null; }
+$$('.overlay:not(#ov-pause)').forEach(o => o.addEventListener('click', e => {
+  if (e.target.closest('[data-close]') || (e.target === o && Date.now() - openedAt > 450)) closeOverlays();
+}));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlays(); });
+
+let toastTimer = null, toastAction = null;
+function toast(msg, action){
+  const t = $('#toast'), inBar = !$('#count').hidden;
+  const host = inBar ? $('.bar') : document.body;
+  if (t.parentElement !== host) host.appendChild(t);
+  t.classList.toggle('in-bar', inBar);
+  $('#toast-msg').textContent = msg;
+  toastAction = action || null;
+  $('#toast-undo').hidden = !action;
+  if (action) $('#toast-undo').textContent = action.label;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; toastAction = null; }, action ? 5000 : 3500);
+}
+$('#toast-undo').addEventListener('click', () => { const a = toastAction; toastAction = null; if (a) a.fn(); });
+
+const describe = r => r.verkehrsart === 'Wirtschaftsverkehr' ? `${r.kategorie}, ${r.branche} (${r.richtung})` : `${r.kategorie} (${r.richtung})`;
+function removeEntry(r){
+  if (!r || r.status !== 'ok') return;
+  changeRecord(r, { status: 'gelöscht' });
+  toast(`Entfernt: ${describe(r)}`, { label: 'Wiederherstellen', fn: () => {
+    if (r.status === 'gelöscht') { changeRecord(r, { status: 'ok' }); toast(`Wiederhergestellt: ${describe(r)}`); }
+  } });
+}
+const undoLast = r => ({ label: 'Rückgängig', fn: () => removeEntry(r) });
+function lastEntry(){
+  if (!session) return null;
+  for (let i = records.length - 1; i >= 0; i--) { const r = records[i]; if (r.session === session.id && r.status === 'ok' && isCount(r)) return r; }
+  return null;
+}
+$('#btn-undo').addEventListener('click', () => {
+  const r = lastEntry();
+  if (!r) { toast('Keine Einträge zum Entfernen.'); return; }
+  removeEntry(r);
+});
+
+/* ---------- Übertragung zur Datenbank ---------- */
+const SERVER_FIELDS = ['id','rev','erfasst','datum','uhrzeit','intervall_5min','person','name','zaehlstelle','richtung','verkehrsart','kategorie','fahrzeug','branche','kommentar','status','geraet'];
+let syncing = false, syncTimer = null, lastError = '', lastOk = 0;
+
+/* Direkter Weg: POST mit lesbarer Antwort. Blockiert der Browser das Lesen der
+   Antwort (z.B. bei lokal geöffneter Datei oder strengen Einstellungen), wird auf
+   den Ausweichweg gewechselt: Senden ohne Antwort, Bestätigung per Skript-Abruf. */
+let transport = 'direkt';
+const MSG_BAD = 'Die Datenbank antwortet nicht wie erwartet. Ist die Web-App für «Jeder» freigegeben und die neueste Version von Code.gs bereitgestellt?';
+function withTimeout(ms){ const c = new AbortController(); const t = setTimeout(() => c.abort(), ms); return { signal: c.signal, done: () => clearTimeout(t) }; }
+async function postDirect(url, payload){
+  const to = withTimeout(25000);
+  try {
+    const res = await fetch(url, { method:'POST', body: JSON.stringify(payload), signal: to.signal });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch (e) { throw new Error(MSG_BAD); }
+  } finally { to.done(); }
+}
+function jsonp(url, params, ms = 20000){
+  return new Promise((resolve, reject) => {
+    const cb = '__vz' + Math.random().toString(36).slice(2, 10);
+    const el = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(Object.assign(new Error('timeout'), { name:'AbortError' })); }, ms);
+    function cleanup(){ clearTimeout(timer); try { delete window[cb]; } catch (e) { window[cb] = undefined; } el.remove(); }
+    window[cb] = data => { cleanup(); resolve(data); };
+    el.onerror = () => { cleanup(); reject(new TypeError('Skript-Abruf fehlgeschlagen')); };
+    const q = Object.entries(Object.assign({}, params, { callback: cb, _: Date.now() })).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    el.src = url + (url.includes('?') ? '&' : '?') + q;
+    document.head.appendChild(el);
+  });
+}
+async function postFallback(url, payload){
+  const batch = uid();
+  const to = withTimeout(25000);
+  try { await fetch(url, { method:'POST', mode:'no-cors', body: JSON.stringify(Object.assign({}, payload, { batch })), signal: to.signal }); }
+  finally { to.done(); }
+  for (let i = 0; i < 3; i++) {
+    const data = await jsonp(url, { batch });
+    if (!(data && data.error === 'pending')) return data;
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  throw new Error('Die Datenbank hat den Empfang nicht bestätigt. Neuer Versuch folgt automatisch.');
+}
+function checkReply(data){
+  if (!data || typeof data !== 'object') throw new Error(MSG_BAD);
+  if (!data.ok) throw new Error(data.error === 'token' ? 'Der Zugangsschlüssel (TOKEN) stimmt nicht mit der Datenbank überein.' : (data.error || 'Die Datenbank meldet einen Fehler.'));
+  return data;
+}
+function friendly(e){
+  if (e && e.name === 'AbortError') return new Error('Die Datenbank antwortet nicht (Zeitüberschreitung). Einträge bleiben gespeichert.');
+  if (e instanceof TypeError) return new Error(navigator.onLine ? 'Datenbank nicht erreichbar. Einträge bleiben gespeichert, neuer Versuch folgt.' : 'Keine Internetverbindung. Einträge bleiben gespeichert.');
+  return e;
+}
+async function post(payload){
+  const url = apiUrl();
+  if (!url) throw new Error('Keine Adresse der Datenbank eingetragen.');
+  if (transport === 'direkt') {
+    try { return checkReply(await postDirect(url, payload)); }
+    catch (e) { if (!(e instanceof TypeError) || !navigator.onLine) throw friendly(e); }
+  }
+  try { const data = checkReply(await postFallback(url, payload)); transport = 'ausweich'; return data; }
+  catch (e) { throw friendly(e); }
+}
+function scheduleSync(delay = 6000){
+  if (syncTimer) return;
+  syncTimer = setTimeout(() => { syncTimer = null; sync(); }, delay);
+}
+async function sync(manual){
+  if (syncing || !apiUrl()) { renderSync(); return; }
+  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  const batch = pendingList().slice(0, CONFIG.BATCH_SIZE);
+  if (!batch.length) { lastError = ''; renderSync(); if (manual) toast('Alle Einträge sind in der Datenbank.'); return; }
+  syncing = true; renderSync();
+  let more = false;
+  try {
+    const data = await post({ token: CONFIG.TOKEN, records: batch.map(r => { const o = {}; SERVER_FIELDS.forEach(f => o[f] = r[f] ?? ''); return o; }) });
+    const acked = new Map((data.acked || []).map(a => [String(a.id), Number(a.rev) || 0]));
+    for (const r of records) if (acked.has(r.id)) r.syncedRev = Math.max(r.syncedRev || 0, Math.min(acked.get(r.id), r.rev));
+    persist();
+    lastError = ''; lastOk = Date.now();
+    more = pendingList().length > 0;
+  } catch (e) {
+    lastError = e.message;
+    if (manual) toast(e.message);
+  } finally {
+    syncing = false; renderSync();
+    if (!$('#setup').hidden) updateLocalInfo();
+    if (more) scheduleSync(800);
+  }
+}
+function renderSync(){
+  const pill = $('#sync-pill');
+  const n = pendingList().length;
+  let state, text;
+  if (!apiUrl()) { state = 'warn'; text = 'Nur auf dem Gerät'; }
+  else if (syncing) { state = 'busy'; text = `Überträgt ${n}`; }
+  else if (!n) { state = 'ok'; text = 'Alles übertragen'; }
+  else if (!navigator.onLine) { state = 'warn'; text = `Offline, ${n} gespeichert`; }
+  else if (lastError) { state = 'err'; text = `${n} nicht übertragen`; }
+  else { state = 'warn'; text = `${n} ausstehend`; }
+  pill.dataset.state = state;
+  pill.querySelector('span').textContent = text;
+  let m;
+  if (!apiUrl()) m = 'Keine Datenbank eingetragen. Einträge sind nur auf diesem Gerät gespeichert.';
+  else if (lastError) m = lastError;
+  else if (lastOk) m = `Zuletzt übertragen um ${stamp(new Date(lastOk)).uhrzeit} Uhr.` + (n ? ` ${n} Einträge ausstehend.` : '');
+  else m = n ? `${n} Einträge warten auf Übertragung.` : 'Noch nichts zu übertragen.';
+  $('#m-status').textContent = m;
+}
+window.addEventListener('online', () => sync());
+window.addEventListener('offline', renderSync);
+setInterval(() => sync(), CONFIG.SYNC_INTERVAL_MS);
+
+/* ---------- CSV-Sicherung ---------- */
+const CSV_FIELDS = [...SERVER_FIELDS, 'in_datenbank'];
+function csvCell(v){
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  if (/[";\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function buildCsv(){
+  const lines = [CSV_FIELDS.join(';')];
+  for (const r of records) lines.push(CSV_FIELDS.map(f => f === 'in_datenbank' ? (isSynced(r) ? 'ja' : 'nein') : r[f]).map(csvCell).join(';'));
+  return '\uFEFF' + lines.join('\r\n');
+}
+function csvName(){
+  const role = roleOf(form.role);
+  return `verkehrszaehlung_${stamp(new Date()).datum}_${slug(role ? role.label : 'geraet')}${form.name ? '_' + slug(form.name) : ''}_${deviceId}.csv`;
+}
+function exportCsv(){
+  if (!records.length) { toast('Noch keine Einträge zum Exportieren.'); return; }
+  const url = URL.createObjectURL(new Blob([buildCsv()], { type:'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = csvName();
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 3000);
+  toast(`CSV mit ${records.length} Einträgen erstellt.`);
+}
+function canShareFiles(){
+  try { return !!(navigator.canShare && navigator.canShare({ files:[new File(['x'], 'x.csv', { type:'text/csv' })] })); }
+  catch (e) { return false; }
+}
+async function shareCsv(){
+  if (!records.length) { toast('Noch keine Einträge zum Teilen.'); return; }
+  try { await navigator.share({ files:[new File([buildCsv()], csvName(), { type:'text/csv' })], title:'Verkehrszählung' }); }
+  catch (e) { if (e.name !== 'AbortError') toast('Teilen nicht möglich. Bitte «CSV exportieren» verwenden.'); }
+}
+
+/* ---------- Bildschirm wach halten, Uhr ---------- */
+let wakeLock = null;
+async function keepAwake(){
+  try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && session && session.active) wakeLock = await navigator.wakeLock.request('screen'); }
+  catch (e) { /* nicht unterstützt */ }
+}
+function releaseWake(){ try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { keepAwake(); if (session && session.active) render(); }
+  else sync();
+});
+function tick(){
+  if (!session || !session.active) return;
+  $('#h-clock').textContent = stamp(new Date()).uhrzeit;
+  if (session.pausedAt) {
+    const min = Math.floor((Date.now() - session.pausedAt) / 60000);
+    $('#p-since').textContent = `seit ${stamp(new Date(session.pausedAt)).uhrzeit.slice(0, 5)} Uhr, ${min} Min.`;
+  }
+}
+setInterval(tick, 1000);
+setInterval(() => { if (session && session.active && $('#ov-branch').hidden && $('#ov-edit').hidden) render(); }, 15000);
+
+$('#s-share').hidden = !canShareFiles();
+
+/* ---------- Start ---------- */
+if (session && session.active) showCount(); else showSetup();
+})();
+</script>
+</body>
+</html>
