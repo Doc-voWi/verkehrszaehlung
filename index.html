@@ -45,7 +45,7 @@ input{font:inherit;color:inherit}
 .conn summary{font-weight:700;color:var(--navy);cursor:pointer;font-size:17px;padding:4px 0}
 .conn[open] summary{margin-bottom:14px}
 .roles{display:grid;gap:8px}
-.role{display:block;width:100%;text-align:left;background:var(--paper);border:2px solid var(--line);border-radius:var(--r-field);padding:12px 14px}
+.role{display:block;width:100%;text-align:left;background:var(--paper);border:2px solid var(--line);border-radius:var(--r-field);padding:9px 14px}
 .role b{display:block;font-size:18px;color:var(--navy)}
 .role small{display:block;font-size:14px;color:var(--muted);margin-top:2px}
 .role[aria-pressed=true]{background:var(--navy);border-color:var(--navy)}
@@ -194,8 +194,8 @@ input{font:inherit;color:inherit}
     <summary>Daten und Sicherung</summary>
     <div class="stack">
       <p id="local-info" class="hint"></p>
-      <button type="button" id="s-export" class="secondary">CSV exportieren</button>
-      <button type="button" id="s-share" class="secondary" hidden>CSV teilen, z.B. per E-Mail</button>
+      <button type="button" id="s-export" class="secondary">Excel exportieren</button>
+      <button type="button" id="s-share" class="secondary" hidden>Excel-Datei teilen, z.B. per E-Mail</button>
     </div>
     <div style="margin-top:22px">
       <label class="field compact"><span>Adresse der Datenbank</span><input type="url" id="f-api" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"></label>
@@ -220,7 +220,7 @@ input{font:inherit;color:inherit}
       <button type="button" class="pill" id="sync-pill" data-state="warn"><i></i><span></span></button>
     </div>
   </header>
-  <div id="storage-warn" class="warn" hidden>Dieses Gerät kann keine Einträge speichern (privater Modus oder Speicher voll). Verbindung zur Datenbank prüfen und regelmässig CSV exportieren.</div>
+  <div id="storage-warn" class="warn" hidden>Dieses Gerät kann keine Einträge speichern (privater Modus oder Speicher voll). Verbindung zur Datenbank prüfen und regelmässig Excel exportieren.</div>
   <div class="tally">
     <span title="Wirtschaftsverkehr"><b id="t-wv">0</b>WV</span>
     <span title="Privatverkehr"><b id="t-pv">0</b>PV</span>
@@ -288,8 +288,8 @@ input{font:inherit;color:inherit}
     </div>
     <div class="stack">
       <button type="button" class="secondary" id="m-sync">Jetzt übertragen</button>
-      <button type="button" class="secondary" id="m-export">CSV exportieren</button>
-      <button type="button" class="secondary" id="m-share" hidden>CSV teilen, z.B. per E-Mail</button>
+      <button type="button" class="secondary" id="m-export">Excel exportieren</button>
+      <button type="button" class="secondary" id="m-share" hidden>Excel-Datei teilen, z.B. per E-Mail</button>
       <button type="button" class="primary" id="m-end">Zählung beenden</button>
     </div>
   </div>
@@ -304,7 +304,7 @@ input{font:inherit;color:inherit}
 /* =====================================================================
    KONFIGURATION – einmalig anpassen
    API_URL: Web-App-URL aus Google Apps Script (endet auf /exec).
-            Leer lassen = nur lokale Speicherung + CSV-Export.
+            Leer lassen = nur lokale Speicherung + Excel-Export.
    TOKEN:   Muss mit TOKEN in Code.gs übereinstimmen.
    ===================================================================== */
 const CONFIG = {
@@ -318,10 +318,14 @@ const CONFIG = {
 /* Rollen: welche Person zählt was. Stelle 1/2 und Richtung A/B werden im
    Einsatzdokument für jeden Zähltag definiert. */
 const ROLES = [
-  { nr:1, label:'Person 1', stelle:'Stelle 1', wv:['A'],     pv:[],        desc:'Stelle 1, Wirtschaftsverkehr Richtung A' },
-  { nr:2, label:'Person 2', stelle:'Stelle 1', wv:['B'],     pv:[],        desc:'Stelle 1, Wirtschaftsverkehr Richtung B' },
-  { nr:3, label:'Person 3', stelle:'Stelle 1', wv:[],        pv:['A','B'], desc:'Stelle 1, Privatverkehr beide Richtungen' },
-  { nr:4, label:'Person 4', stelle:'Stelle 2', wv:['A','B'], pv:['A','B'], desc:'Stelle 2, gesamter Verkehr beide Richtungen' },
+  { nr:1, label:'Person 1', stelle:'Stelle 1', wv:['Richtung A'], pv:[], desc:'Stelle 1, Wirtschaftsverkehr Richtung A' },
+  { nr:2, label:'Person 2', stelle:'Stelle 1', wv:['Richtung B'], pv:[], desc:'Stelle 1, Wirtschaftsverkehr Richtung B' },
+  { nr:3, label:'Person 3', stelle:'Stelle 1', wv:[], pv:['Richtung A','Richtung B'], desc:'Stelle 1, Privatverkehr beide Richtungen' },
+  { nr:4, label:'Person 4', stelle:'Stelle 2', wv:['Richtung A','Richtung B'], pv:['Richtung A','Richtung B'], desc:'Stelle 2, gesamter Verkehr beide Richtungen' },
+  { nr:5, label:'Person 5', stelle:'Stelle 3', wv:['Fahrspur A'], pv:['Fahrspur A'], desc:'Stelle 3, gesamter Verkehr Fahrspur A' },
+  { nr:6, label:'Person 6', stelle:'Stelle 3', wv:['Fahrspur B'], pv:['Fahrspur B'], desc:'Stelle 3, gesamter Verkehr Fahrspur B' },
+  { nr:7, label:'Person 7', stelle:'Stelle 3', wv:['Fahrspur C'], pv:['Fahrspur C'], desc:'Stelle 3, gesamter Verkehr Fahrspur C' },
+  { nr:8, label:'Person 8', stelle:'Stelle 3', wv:['Fahrspur D'], pv:['Fahrspur D'], desc:'Stelle 3, gesamter Verkehr Fahrspur D' },
 ];
 const roleOf = nr => ROLES.find(r => r.nr === nr) || null;
 
@@ -334,7 +338,7 @@ const WV_VEHICLES = [
 const PV_VEHICLES = [
   { key:'pkw',       label:'Pkw',       name:'Pkw',       cat:'Pkw',       icon:'car', main:true },
   { key:'linienbus', label:'Linienbus', name:'Linienbus', cat:'Linienbus', icon:'bus' },
-  { key:'reisebus',  label:'Reisebus',  name:'Reisebus',  cat:'Reisebus',  icon:'coach' },
+  { key:'motorrad',  label:'Motorrad',  name:'Motorrad',  cat:'Motorrad',  icon:'motorrad' },
 ];
 const BRANCHES = ['Transport','Handel','Nahrungsmittel','Entsorgung','Bau','Service','Sonstige / unklar'];
 
@@ -346,6 +350,7 @@ const ICONS = {
   trailer:'<rect x="1" y="5" width="21" height="13" rx="1.5"/><rect x="21" y="15.5" width="6" height="1.6"/><rect x="27" y="5" width="19" height="14" rx="1.5"/><path d="M47.5 19V8h6l5 5v6z"/><path class="win" d="M49 9.8h3.8l3.2 3.2H49z"/><circle cx="6.5" cy="20" r="3.3"/><circle cx="16.5" cy="20" r="3.3"/><circle cx="33" cy="20" r="3.3"/><circle cx="53" cy="20" r="3.3"/>',
   car:'<path d="M3 19v-4.2a2.2 2.2 0 0 1 1.8-2.2L13 11l6.5-5.2a3 3 0 0 1 1.9-.8h13.4a3 3 0 0 1 2 .8L43 11l10.3 1.6a3 3 0 0 1 2.7 3V19z"/><path class="win" d="M17 11l4.6-3.8h6.4V11zM31 7.2h4.2l4.4 3.8H31z"/><circle cx="15" cy="19.5" r="4"/><circle cx="45" cy="19.5" r="4"/>',
   bus:'<rect x="2" y="3" width="55" height="16" rx="3"/><rect class="win" x="5" y="6" width="36" height="6" rx="1"/><rect class="win" x="44" y="6" width="10" height="9" rx="1"/><circle cx="14" cy="20" r="3.8"/><circle cx="46" cy="20" r="3.8"/>',
+  motorrad:'<path d="M11 17.2L25 13.6l1 2.6-13.6 3.4z"/><path d="M13 10.5c1-1.5 3-2 5-2h9c1.5-2.3 3.5-3 6-3h6c1.5 0 2.5 1 3 2.5l.8 2.5H35l-3 2.5H16z"/><path d="M21 12.5h12l4 4.7c.4.6 0 1.3-.8 1.3H25c-.6 0-1-.3-1.2-.8z"/><path d="M40.2 4.4l2.2-1 7 14.2-2.2 1z"/><path d="M37.5 2.6h7v1.8h-7z"/><circle cx="12" cy="18" r="6.2"/><circle cx="48" cy="18" r="6.2"/><circle class="win" cx="12" cy="18" r="2.5"/><circle class="win" cx="48" cy="18" r="2.5"/>',
   coach:'<path d="M2 19V7.5A3.5 3.5 0 0 1 5.5 4H49c4.4 0 8 3.6 8 8v7z"/><path class="win" d="M6 7h42.5c2.7 0 5 1.7 5.8 4.2L55 13H6z"/><circle cx="12" cy="20" r="3.4"/><circle cx="19.5" cy="20" r="3.4"/><circle cx="47" cy="20" r="3.4"/>',
 };
 const icon = n => `<svg class="ico" viewBox="0 0 60 25" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -456,24 +461,24 @@ $('#btn-test').addEventListener('click', async () => {
 function showCount(){
   const role = roleOf(session.role);
   const both = role.wv.length > 0 && role.pv.length > 0;
+  const dirs = [...new Set([...role.wv, ...role.pv])];
+  const compact = both && dirs.length > 1;
   $('#setup').hidden = true; $('#count').hidden = false;
   $('#h-site').textContent = role.stelle;
   $('#h-dir').textContent = role.label;
   $('#h-person').textContent = session.name || '';
   const main = $('.count-main');
-  main.classList.toggle('compact', both);
+  main.classList.toggle('compact', compact);
   main.classList.toggle('wv-only', !role.pv.length);
   main.classList.toggle('pv-only', !role.wv.length);
   $('#t-wv').parentElement.hidden = !role.wv.length;
   $('#t-pv').parentElement.hidden = !role.pv.length;
-  const dirs = ['A', 'B'].filter(d => role.wv.includes(d) || role.pv.includes(d));
-  $('#blocks').innerHTML = dirs.map(d => {
-    const dir = 'Richtung ' + d;
+  $('#blocks').innerHTML = dirs.map(dir => {
     const what = both ? '' : (role.wv.length ? ', Wirtschaftsverkehr' : ', Privatverkehr');
-    let h = `<section><h2 class="dir-label"><span class="dirtag">${d}</span>${esc(dir + what)}</h2>`;
-    if (role.wv.includes(d)) h += `<div class="veh-grid">${WV_VEHICLES.map(v =>
-      `<button type="button" class="veh" data-kind="wv" data-veh="${v.key}" data-dir="${esc(dir)}">${icon(v.icon)}<span class="veh-label">${both ? v.short : esc(v.label) + '<small>' + esc(v.sub) + '</small>'}</span><span class="num">0</span></button>`).join('')}</div>`;
-    if (role.pv.includes(d)) h += `<div class="pv-grid">${PV_VEHICLES.map(v =>
+    let h = `<section><h2 class="dir-label"><span class="dirtag">${esc(dir.slice(-1))}</span>${esc(dir + what)}</h2>`;
+    if (role.wv.includes(dir)) h += `<div class="veh-grid">${WV_VEHICLES.map(v =>
+      `<button type="button" class="veh" data-kind="wv" data-veh="${v.key}" data-dir="${esc(dir)}">${icon(v.icon)}<span class="veh-label">${compact ? v.short : esc(v.label) + '<small>' + esc(v.sub) + '</small>'}</span><span class="num">0</span></button>`).join('')}</div>`;
+    if (role.pv.includes(dir)) h += `<div class="pv-grid">${PV_VEHICLES.map(v =>
       `<button type="button" class="pvb${v.main ? ' main' : ''}" data-kind="pv" data-veh="${v.key}" data-dir="${esc(dir)}">${icon(v.icon)}<span>${esc(v.label)}</span><span class="num">0</span></button>`).join('')}</div>`;
     return h + '</section>';
   }).join('');
@@ -616,9 +621,9 @@ $('#ed-delete').addEventListener('click', () => {
 
 /* Menü */
 $('#btn-menu').addEventListener('click', () => { renderSync(); $('#m-share').hidden = !canShareFiles(); openOverlay('#ov-menu'); });
-$('#m-sync').addEventListener('click', () => { closeOverlays(); if (!apiUrl()) toast('Keine Datenbank eingetragen. Bitte CSV exportieren.'); else sync(true); });
-$('#m-export').addEventListener('click', () => { closeOverlays(); exportCsv(); });
-$('#m-share').addEventListener('click', () => { closeOverlays(); shareCsv(); });
+$('#m-sync').addEventListener('click', () => { closeOverlays(); if (!apiUrl()) toast('Keine Datenbank eingetragen. Bitte Excel exportieren.'); else sync(true); });
+$('#m-export').addEventListener('click', () => { closeOverlays(); exportXlsx(); });
+$('#m-share').addEventListener('click', () => { closeOverlays(); shareXlsx(); });
 function endSession(){
   closeOverlays();
   $('#ov-pause').hidden = true;
@@ -632,8 +637,8 @@ function endSession(){
 function doneText(){
   const p = pendingList().length;
   return `Zählung beendet: ${lastDone} Fahrzeuge erfasst.` + (apiUrl()
-    ? (p ? ` ${p} Einträge werden noch übertragen. Falls das nicht klappt, bitte CSV exportieren.` : ' Alle Einträge sind in der Datenbank.')
-    : ' Bitte jetzt CSV exportieren.');
+    ? (p ? ` ${p} Einträge werden noch übertragen. Falls das nicht klappt, bitte Excel exportieren.` : ' Alle Einträge sind in der Datenbank.')
+    : ' Bitte jetzt Excel exportieren.');
 }
 $('#m-end').addEventListener('click', endSession);
 $('#p-end').addEventListener('click', endSession);
@@ -653,9 +658,9 @@ $('#p-resume').addEventListener('click', () => {
   $('#ov-pause').hidden = true;
   toast('Zählung fortgesetzt.');
 });
-$('#sync-pill').addEventListener('click', () => { if (apiUrl()) sync(true); else toast('Keine Datenbank eingetragen. Daten bleiben auf dem Gerät, bitte CSV exportieren.'); });
-$('#s-export').addEventListener('click', exportCsv);
-$('#s-share').addEventListener('click', shareCsv);
+$('#sync-pill').addEventListener('click', () => { if (apiUrl()) sync(true); else toast('Keine Datenbank eingetragen. Daten bleiben auf dem Gerät, bitte Excel exportieren.'); });
+$('#s-export').addEventListener('click', exportXlsx);
+$('#s-share').addEventListener('click', shareXlsx);
 
 /* ---------- Blätter und Hinweise ---------- */
 function openOverlay(sel){ $$('.overlay:not(#ov-pause)').forEach(o => o.hidden = true); $(sel).hidden = false; openedAt = Date.now(); }
@@ -814,40 +819,91 @@ window.addEventListener('online', () => sync());
 window.addEventListener('offline', renderSync);
 setInterval(() => sync(), CONFIG.SYNC_INTERVAL_MS);
 
-/* ---------- CSV-Sicherung ---------- */
-const CSV_FIELDS = [...SERVER_FIELDS, 'in_datenbank'];
-function csvCell(v){
-  let s = v == null ? '' : String(v);
-  if (/^[=+\-@]/.test(s)) s = "'" + s;
-  if (/[";\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
-  return s;
+/* ---------- Excel-Sicherung ----------
+   Erzeugt eine .xlsx-Datei direkt im Browser, ohne Internet und ohne
+   fremde Bausteine: Die Excel-Datei ist ein ZIP-Archiv mit XML-Dateien. */
+const EXPORT_FIELDS = [...SERVER_FIELDS, 'in_datenbank'];
+const EXPORT_WIDTHS = { id:38, erfasst:19, datum:11, uhrzeit:9, intervall_5min:9, rev:5, person:10, name:16, zaehlstelle:10, richtung:11, verkehrsart:17, kategorie:16, fahrzeug:24, branche:17, kommentar:28, status:9, geraet:8, in_datenbank:12 };
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes){ let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files){
+  const enc = new TextEncoder(), now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+    h.setUint16(10, dosTime, true); h.setUint16(12, dosDate, true); h.setUint32(14, crc, true);
+    h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+    parts.push(new Uint8Array(h.buffer), name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+    c.setUint16(12, dosTime, true); c.setUint16(14, dosDate, true); c.setUint32(16, crc, true);
+    c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true);
+    c.setUint32(42, offset, true);
+    central.push(new Uint8Array(c.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const cdSize = central.reduce((s, a) => s + a.length, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: XLSX_MIME });
 }
-function buildCsv(){
-  const lines = [CSV_FIELDS.join(';')];
-  for (const r of records) lines.push(CSV_FIELDS.map(f => f === 'in_datenbank' ? (isSynced(r) ? 'ja' : 'nein') : r[f]).map(csvCell).join(';'));
-  return '\uFEFF' + lines.join('\r\n');
+const xmlText = v => String(v ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const colName = i => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+function buildXlsx(){
+  const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const cell = (ref, v, style) => typeof v === 'number'
+    ? `<c r="${ref}"${style ? ' s="1"' : ''}><v>${v}</v></c>`
+    : `<c r="${ref}" t="inlineStr"${style ? ' s="1"' : ''}><is><t xml:space="preserve">${xmlText(v)}</t></is></c>`;
+  const rows = [`<row r="1">${EXPORT_FIELDS.map((f, i) => cell(colName(i) + 1, f, true)).join('')}</row>`];
+  records.forEach((r, n) => {
+    const rn = n + 2;
+    rows.push(`<row r="${rn}">${EXPORT_FIELDS.map((f, i) => {
+      const v = f === 'in_datenbank' ? (isSynced(r) ? 'ja' : 'nein') : f === 'rev' ? Number(r.rev) || 1 : r[f];
+      return cell(colName(i) + rn, v, false);
+    }).join('')}</row>`);
+  });
+  const cols = EXPORT_FIELDS.map((f, i) => `<col min="${i + 1}" max="${i + 1}" width="${EXPORT_WIDTHS[f] || 14}" customWidth="1"/>`).join('');
+  const sheet = head + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+    + `<cols>${cols}</cols><sheetData>${rows.join('')}</sheetData></worksheet>`;
+  return zipStore([
+    { name:'[Content_Types].xml', data: head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+    { name:'_rels/.rels', data: head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name:'xl/workbook.xml', data: head + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Einträge" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+    { name:'xl/_rels/workbook.xml.rels', data: head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+    { name:'xl/styles.xml', data: head + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
+    { name:'xl/worksheets/sheet1.xml', data: sheet },
+  ]);
 }
-function csvName(){
+function exportName(){
   const role = roleOf(form.role);
-  return `verkehrszaehlung_${stamp(new Date()).datum}_${slug(role ? role.label : 'geraet')}${form.name ? '_' + slug(form.name) : ''}_${deviceId}.csv`;
+  return `verkehrszaehlung_${stamp(new Date()).datum}_${slug(role ? role.label : 'geraet')}${form.name ? '_' + slug(form.name) : ''}_${deviceId}.xlsx`;
 }
-function exportCsv(){
+function exportXlsx(){
   if (!records.length) { toast('Noch keine Einträge zum Exportieren.'); return; }
-  const url = URL.createObjectURL(new Blob([buildCsv()], { type:'text/csv;charset=utf-8' }));
+  const url = URL.createObjectURL(buildXlsx());
   const a = document.createElement('a');
-  a.href = url; a.download = csvName();
+  a.href = url; a.download = exportName();
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 3000);
-  toast(`CSV mit ${records.length} Einträgen erstellt.`);
+  toast(`Excel-Datei mit ${records.length} Einträgen erstellt.`);
 }
 function canShareFiles(){
-  try { return !!(navigator.canShare && navigator.canShare({ files:[new File(['x'], 'x.csv', { type:'text/csv' })] })); }
+  try { return !!(navigator.canShare && navigator.canShare({ files:[new File(['x'], 'x.xlsx', { type: XLSX_MIME })] })); }
   catch (e) { return false; }
 }
-async function shareCsv(){
+async function shareXlsx(){
   if (!records.length) { toast('Noch keine Einträge zum Teilen.'); return; }
-  try { await navigator.share({ files:[new File([buildCsv()], csvName(), { type:'text/csv' })], title:'Verkehrszählung' }); }
-  catch (e) { if (e.name !== 'AbortError') toast('Teilen nicht möglich. Bitte «CSV exportieren» verwenden.'); }
+  try { await navigator.share({ files:[new File([buildXlsx()], exportName(), { type: XLSX_MIME })], title:'Verkehrszählung' }); }
+  catch (e) { if (e.name !== 'AbortError') toast('Teilen nicht möglich. Bitte «Excel exportieren» verwenden.'); }
 }
 
 /* ---------- Bildschirm wach halten, Uhr ---------- */
